@@ -58,7 +58,7 @@ parted -s "$DISK" set 1 boot on
 parted -s "$DISK" mkpart primary linux-swap ${SWAP_START}MiB ${SWAP_END}MiB
 parted -s "$DISK" mkpart primary ext4 ${ROOT_START}MiB 100%
 
-# Detect NVMe vs SATA
+# NVMe vs SATA
 if [[ "$DISK" == nvme* ]]; then
     BOOT_PART="${DISK}p1"
     SWAP_PART="${DISK}p2"
@@ -108,7 +108,7 @@ pacstrap -K /mnt \
   man-pages \
   texinfo \
   git \
-  base-devel
+  base-devel 
 
 # 9. arch-chroot
 log "Look mum! i chrooted into my Arch ISO slash mnt directory!"
@@ -213,11 +213,13 @@ arch-chroot /mnt pacman-key --lsign-key 3056513887B78AEB
 arch-chroot /mnt pacman -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' --noconfirm
 arch-chroot /mnt pacman -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst' --noconfirm
 cat >> /mnt/etc/pacman.conf <<EOF
+[multilib]
+Include = /etc/pacman.d/mirrorlist
 [chaotic-aur]
 Include = /etc/pacman.d/chaotic-mirrorlist
 EOF
 arch-chroot /mnt pacman -Syu --noconfirm
-arch-chroot /mnt pacman -S yay --noconfirm
+arch-chroot /mnt pacman -S yay fastfetch steam --noconfirm
 
 
 log "Bye Bye in T minus 3 seconds"
@@ -227,5 +229,6 @@ sleep 1
 log "Bye Bye in T minus 1 second"
 sleep 1
 log "Byyyyyye Byyyyyyyyyyyyyuyyuyyyyyyyyyyyyyyyyuyyyyyyyyyyyyyeeeeeeeeeeeeeeeeeeee!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D:D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D"
+sleep 0.75
 
 reboot
