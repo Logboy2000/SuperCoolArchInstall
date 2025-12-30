@@ -68,8 +68,101 @@ mount $ROOT_PART /mnt
 mount --mkdir $BOOT_PART /mnt/boot
 
 # 7. Mirrors
-log "Mirrorlist.......   hell yeah"
-
+log "Fetching Mirrorlist.......   hell yeah"
+curl https://raw.githubusercontent.com/Logboy2000/MY-ARCHINSTALL/refs/heads/main/mirrorlist -o /etc/pacman.d/mirrorlist
 
 
 cat /etc/pacman.d/mirrorlist
+
+# 8. pacstrap
+log "pacstrap is love. pacstrap is life."
+pacstrap -K /mnt \
+  base \
+  linux \
+  linux-firmware \
+  linux-headers \
+  amd-ucode \
+  networkmanager \
+  vim \
+  nano \
+  sudo \
+  man-db \
+  man-pages \
+  texinfo \
+  git \
+  base-devel
+
+# 9. arch-chroot
+log "Look mum! i chrooted into my Arch ISO slash mnt directory!"
+
+genfstab -U /mnt >> /mnt/etc/fstab
+
+arch-chroot /mnt /bin/bash <<'EOF'
+set -e
+
+echo "Setting timezone"
+ln -sf /usr/share/zoneinfo/America/Edmonton /etc/localtime
+hwclock --systohc
+
+echo "Configuring locale"
+sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+locale-gen
+
+cat > /etc/locale.conf <<LOCALE
+LANG=en_US.UTF-8
+LOCALE
+
+echo "Configuring hostname"
+read -rp "Gimme dat hostname: " HOSTNAME
+echo "$HOSTNAME" > /etc/hostname
+
+cat > /etc/hosts <<HOSTS
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   $HOSTNAME.localdomain $HOSTNAME
+HOSTS
+
+echo "Enabling NetworkManager"
+systemctl enable NetworkManager
+
+echo "Building initramfs"
+echo "KEYMAP=us" > /etc/vconsole.conf
+mkinitcpio -P
+
+echo "Setting root password"
+passwd
+
+echo "Installing systemd-boot"
+bootctl install
+
+echo "Creating loader config"
+cat > /boot/loader/loader.conf <<LOADER
+default arch
+timeout 3
+editor no
+LOADER
+
+echo "Creating Arch boot entry"
+ROOT_UUID=$(blkid -s UUID -o value $(findmnt -no SOURCE /))
+
+cat > /boot/loader/entries/arch.conf <<ENTRY
+title   Arch Linux
+linux   /vmlinuz-linux
+initrd  /amd-ucode.img
+initrd  /initramfs-linux.img
+options root=UUID=$ROOT_UUID rw
+ENTRY
+
+echo "systemd-boot installation complete"
+EOF
+
+log "Bye Bye :D"
+sleep 1
+log 3
+sleep 1
+log 2
+sleep 1
+log 1
+sleep 1
+
+reboot
