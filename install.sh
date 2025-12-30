@@ -1,8 +1,13 @@
 #!/bin/bash
 set -e
 
+BLUE='\e[0;34m'
+GREEN='\e[0;32m'
+NC='\e[0m' # No Color (reset)
+
+
 log() {
-  echo "[SuperCoolArchInstall] $1"
+  echo "[${BLUE}SuperCoolArchInstall${NC}]${GREEN} $1${NC}"
 }
 setfont ter-132b
 
