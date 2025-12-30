@@ -7,7 +7,7 @@ NC='\e[0m' # No Color (reset)
 
 
 log() {
-  echo -e "[${BLUE}SuperCoolArchInstall${NC}]${GREEN} $1${NC}"
+  echo -e "\n[${BLUE}SuperCoolArchInstall${NC}]${GREEN} $1${NC}"
 }
 setfont ter-132b
 
