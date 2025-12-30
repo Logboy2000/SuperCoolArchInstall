@@ -129,9 +129,6 @@ echo "Building initramfs"
 echo "KEYMAP=us" > /etc/vconsole.conf
 mkinitcpio -P
 
-echo "Setting root password"
-passwd
-
 echo "Installing systemd-boot"
 bootctl install
 
@@ -155,14 +152,15 @@ ENTRY
 
 echo "systemd-boot installation complete"
 EOF
+log "root password pretty please"
+arch-chroot /mnt passwd
 
-log "Bye Bye :D"
+log "Bye Bye in T minus 3 seconds"
 sleep 1
-log 3
+log "Bye Bye in T minus 2 seconds"
 sleep 1
-log 2
+log "Bye Bye in T minus 1 second"
 sleep 1
-log 1
-sleep 1
+log "Byyyyyye Byyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyve!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
 reboot
