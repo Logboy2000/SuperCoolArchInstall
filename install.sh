@@ -1,4 +1,4 @@
 #!/bin/bash
 
 setfont ter-132b
-timedatectl
+timedatectl >> /dev/stdout
