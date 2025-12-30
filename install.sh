@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-BLUE='\e[0;34m'
+BLUE='\033[0;36m'
 GREEN='\e[0;32m'
 NC='\e[0m' # No Color (reset)
 
@@ -10,11 +10,11 @@ log() {
   echo -e "\n[${BLUE}SuperCoolArchInstall${NC}]${GREEN} $1${NC}"
 }
 setfont ter-132b
+clear
+# 1. Ask for target disk
+log "Select disk k thanks:"
 
-# --- 1. Ask user for target disk ---
-echo "Available disks:"
-
-# Get list of disks (NAME only)
+# Get list of disks
 mapfile -t DISKS < <(lsblk -d -o NAME,SIZE,MODEL | tail -n +2)
 
 # Print menu
@@ -22,7 +22,7 @@ for i in "${!DISKS[@]}"; do
     echo "$((i+1))) ${DISKS[i]}"
 done
 
-# Prompt user
+# Prompt for disk
 while true; do
     read -rp "Select a disk by number: " DISK_NUM
     if [[ "$DISK_NUM" =~ ^[0-9]+$ ]] && (( DISK_NUM >= 1 && DISK_NUM <= ${#DISKS[@]} )); then
@@ -160,7 +160,7 @@ ENTRY
 
 echo "systemd-boot installation complete"
 EOF
-# 1. Ask for root password first
+# Ask for root password
 read -rsp "Enter root password: " ROOT_PASS
 echo
 read -rsp "Confirm root password: " ROOT_PASS_CONFIRM
@@ -174,13 +174,13 @@ fi
 # 2. Set root password
 echo "root:$ROOT_PASS" | arch-chroot /mnt chpasswd
 
-# 3. Create user "logan"
+# 3. Create user 
 arch-chroot /mnt useradd -m -G wheel -s /bin/bash logan
 
-# 4. Set logan’s password same as root
+# 4. Set password same as root
 echo "logan:$ROOT_PASS" | arch-chroot /mnt chpasswd
 
-# 5. Allow sudo for wheel group
+#  wheel group
 arch-chroot /mnt sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
 
@@ -216,8 +216,8 @@ cat >> /mnt/etc/pacman.conf <<EOF
 [chaotic-aur]
 Include = /etc/pacman.d/chaotic-mirrorlist
 EOF
-arch-chroot /mnt pacman -Syu
-arch-chroot /mnt pacman -S yay
+arch-chroot /mnt pacman -Syu --noconfirm
+arch-chroot /mnt pacman -S yay --noconfirm
 
 
 log "Bye Bye in T minus 3 seconds"
