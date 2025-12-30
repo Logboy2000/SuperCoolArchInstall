@@ -205,19 +205,19 @@ cat > /mnt/etc/hosts <<EOF
 EOF
 
 
+
+
+log "Me when the AUR is chaotic :O"
+arch-chroot /mnt pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
+arch-chroot /mnt pacman-key --lsign-key 3056513887B78AEB
+arch-chroot /mnt pacman -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' --noconfirm
+arch-chroot /mnt pacman -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst' --noconfirm
 cat >> /mnt/etc/pacman.conf <<EOF
 [chaotic-aur]
 Include = /etc/pacman.d/chaotic-mirrorlist
 EOF
-
-
-
-
-arch-chroot /mnt pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
-arch-chroot /mnt pacman-key --lsign-key 3056513887B78AEB
-arch-chroot /mnt pacman -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'--noconfirm
-arch-chroot /mnt pacman -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'--noconfirm
-arch-chroot /mnt sudo pacman -Syu yay
+arch-chroot /mnt pacman -Syu
+arch-chroot /mnt pacman -S yay
 
 
 log "Bye Bye in T minus 3 seconds"
