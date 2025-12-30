@@ -13,47 +13,63 @@ setfont ter-132b
 
 # --- 1. Ask user for target disk ---
 echo "Available disks:"
-lsblk -d -o NAME,SIZE,MODEL
-echo
-read -rp "Enter the disk to format: " DISK
 
-# --- Confirm ---
-echo "WARNING: ALL DATA ON $DISK WILL BE LOST!"
-read -rp "Are you sure? (yes/no): " CONFIRM
-if [[ "$CONFIRM" != "yes" ]]; then
-    echo "Aborting."
-    exit 1
-fi
+# Get list of disks (NAME only)
+mapfile -t DISKS < <(lsblk -d -o NAME,SIZE,MODEL | tail -n +2)
+
+# Print menu
+for i in "${!DISKS[@]}"; do
+    echo "$((i+1))) ${DISKS[i]}"
+done
+
+# Prompt user
+while true; do
+    read -rp "Select a disk by number: " DISK_NUM
+    if [[ "$DISK_NUM" =~ ^[0-9]+$ ]] && (( DISK_NUM >= 1 && DISK_NUM <= ${#DISKS[@]} )); then
+        DISK_NAME=$(echo "${DISKS[DISK_NUM-1]}" | awk '{print $1}')
+        echo "You selected: $DISK_NAME"
+        break
+    else
+        echo "Invalid selection. Please enter a number between 1 and ${#DISKS[@]}."
+    fi
+done
+
+DISK="/dev/$DISK_NAME"
+
 log "Partitioning time yayyyyyyyyyyyyyyyyyyyyyyyyyyyyyy!!!"
 
-# 2. Show total disk and RAM for reference 
+# 2. Show total disk and RAM for reference
 DISK_SIZE=$(lsblk -dn -o SIZE "$DISK")
-RAM_SIZE=$(free -h | awk '/Mem:/ {print $2}')
-echo "Disk size: $DISK_SIZE"
-echo "RAM size: $RAM_SIZE"
+# Detect RAM
+RAM_MIB=$(free -m | awk '/Mem:/ {print $2}')
+echo "Swap size: ${RAM_MIB} MiB (matches RAM)"
 
-# 3. Ask for swap size 
-read -rp "Enter swap size (e.g., 4G): " SWAP_SIZE
+# Partition math
+EFI_START=1
+EFI_END=2049
+SWAP_START=$EFI_END
+SWAP_END=$((SWAP_START + RAM_MIB))
+ROOT_START=$SWAP_END
 
-# 4. Partitioning 
-# We'll use parted in GPT mode
+# Partitioning
 parted -s "$DISK" mklabel gpt
-
-# EFI /boot partition 2GiB
-parted -s "$DISK" mkpart primary fat32 1MiB 2049MiB
+parted -s "$DISK" mkpart primary fat32 ${EFI_START}MiB ${EFI_END}MiB
 parted -s "$DISK" set 1 boot on
+parted -s "$DISK" mkpart primary linux-swap ${SWAP_START}MiB ${SWAP_END}MiB
+parted -s "$DISK" mkpart primary ext4 ${ROOT_START}MiB 100%
 
-# Swap partition
-parted -s "$DISK" mkpart primary linux-swap 2049MiB "$((2049 + ${SWAP_SIZE%G} * 1024))MiB"
+# Detect NVMe vs SATA
+if [[ "$DISK" == nvme* ]]; then
+    BOOT_PART="${DISK}p1"
+    SWAP_PART="${DISK}p2"
+    ROOT_PART="${DISK}p3"
+else
+    BOOT_PART="${DISK}1"
+    SWAP_PART="${DISK}2"
+    ROOT_PART="${DISK}3"
+fi
 
-# Root partition (rest of disk)
-parted -s "$DISK" mkpart primary ext4 "$((2049 + ${SWAP_SIZE%G} * 1024))MiB" 100%
-
-# 5. Format partitions 
-BOOT_PART="${DISK}1"
-SWAP_PART="${DISK}2"
-ROOT_PART="${DISK}3"
-
+# Format
 mkfs.fat -F32 "$BOOT_PART"
 mkswap "$SWAP_PART"
 swapon "$SWAP_PART"
@@ -62,8 +78,10 @@ mkfs.ext4 "$ROOT_PART"
 log "Partitioning and formatting complete"
 echo "Boot: $BOOT_PART, Swap: $SWAP_PART, Root: $ROOT_PART"
 
+
+
 # 6. Mount Shit
-log "now we mount this shit"
+log "now we mount ts shi"
 mount $ROOT_PART /mnt
 mount --mkdir $BOOT_PART /mnt/boot
 
@@ -112,16 +130,6 @@ cat > /etc/locale.conf <<LOCALE
 LANG=en_US.UTF-8
 LOCALE
 
-echo "Configuring hostname"
-read -rp "Gimme dat hostname: " HOSTNAME
-echo "$HOSTNAME" > /etc/hostname
-
-cat > /etc/hosts <<HOSTS
-127.0.0.1   localhost
-::1         localhost
-127.0.1.1   $HOSTNAME.localdomain $HOSTNAME
-HOSTS
-
 echo "Enabling NetworkManager"
 systemctl enable NetworkManager
 
@@ -152,8 +160,65 @@ ENTRY
 
 echo "systemd-boot installation complete"
 EOF
-log "root password pretty please"
-arch-chroot /mnt passwd
+# 1. Ask for root password first
+read -rsp "Enter root password: " ROOT_PASS
+echo
+read -rsp "Confirm root password: " ROOT_PASS_CONFIRM
+echo
+
+if [[ "$ROOT_PASS" != "$ROOT_PASS_CONFIRM" ]]; then
+  echo "Passwords do not match"
+  exit 1
+fi
+
+# 2. Set root password
+echo "root:$ROOT_PASS" | arch-chroot /mnt chpasswd
+
+# 3. Create user "logan"
+arch-chroot /mnt useradd -m -G wheel -s /bin/bash logan
+
+# 4. Set logan’s password same as root
+echo "logan:$ROOT_PASS" | arch-chroot /mnt chpasswd
+
+# 5. Allow sudo for wheel group
+arch-chroot /mnt sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
+
+
+
+
+
+while true; do
+  read -rp "Gimme that hostname: " HOSTNAME
+  if [[ "$HOSTNAME" =~ ^[a-zA-Z0-9-]+$ ]]; then
+    break
+  else
+    echo "Invalid hostname. Only letters, numbers, and dash allowed."
+  fi
+done
+
+echo "$HOSTNAME" > /mnt/etc/hostname
+
+cat > /mnt/etc/hosts <<EOF
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   $HOSTNAME.localdomain $HOSTNAME
+EOF
+
+
+cat >> /mnt/etc/pacman.conf <<EOF
+[chaotic-aur]
+Include = /etc/pacman.d/chaotic-mirrorlist
+EOF
+
+
+
+
+arch-chroot /mnt pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
+arch-chroot /mnt pacman-key --lsign-key 3056513887B78AEB
+arch-chroot /mnt pacman -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'--noconfirm
+arch-chroot /mnt pacman -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'--noconfirm
+arch-chroot /mnt sudo pacman -Syu yay
+
 
 log "Bye Bye in T minus 3 seconds"
 sleep 1
@@ -161,6 +226,6 @@ log "Bye Bye in T minus 2 seconds"
 sleep 1
 log "Bye Bye in T minus 1 second"
 sleep 1
-log "Byyyyyye Byyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyve!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+log "Byyyyyye Byyyyyyyyyyyyyuyyuyyyyyyyyyyyyyyyyuyyyyyyyyyyyyyeeeeeeeeeeeeeeeeeeee!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D:D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D :D"
 
 reboot
