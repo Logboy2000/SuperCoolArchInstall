@@ -10,7 +10,6 @@ log() {
   echo -e "[${BLUE}SuperCoolArchInstall${NC}]${GREEN} $1${NC}"
 }
 setfont ter-132b
-umount -a
 
 # --- 1. Ask user for target disk ---
 echo "Available disks:"
